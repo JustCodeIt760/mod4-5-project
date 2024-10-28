@@ -52,22 +52,19 @@ if (!isProduction) {
     next(err);
   });
 
-app.use((err, _req, _res, next) => {
-  // check if error is a Sequelize error:
-  if (err instanceof ValidationError) {
-    let errors = {};
-    for (let error of err.errors) {
-      errors[error.path] = error.message;
-    }
-    err.title = 'Validation error';
-    err.errors = errors;
-  }
-  next(err);
-});
-
 app.use((err, _req, res, _next) => {
   res.status(err.status || 500);
   console.error(err);
+  
+  // For validation errors (status 400), only return message and errors
+  if (err.status === 400) {
+    return res.json({
+      message: err.message,
+      errors: err.errors
+    });
+  }
+
+  // For all other errors, use existing format
   res.json({
     title: err.title || 'Server Error',
     message: err.message,
