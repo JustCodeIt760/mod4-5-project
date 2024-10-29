@@ -1,5 +1,6 @@
 const { Spot } = require('../db/models');
 const { Review } = require('../db/models');
+const { SpotImage } = require('../db/models');
 
 // Authorization middleware for spot ownership
 const authorization = async (req, res, next) => {
@@ -41,7 +42,33 @@ const reviewAuthorization = async (req, res, next) => {
   next();
 };
 
+// Authorization middleware for spot images
+const spotImageAuthorization = async (req, res, next) => {
+  const spotImage = await SpotImage.findByPk(req.params.imageId, {
+    include: [{
+      model: Spot,
+      attributes: ['ownerId']
+    }]
+  });
+  
+  if (!spotImage) {
+    return res.status(404).json({
+      message: "Spot Image couldn't be found"
+    });
+  }
+
+  if (spotImage.Spot.ownerId !== req.user.id) {
+    return res.status(403).json({
+      message: "Forbidden"
+    });
+  }
+
+  req.spotImage = spotImage;
+  next();
+};
+
 module.exports = {
   authorization,
-  reviewAuthorization
+  reviewAuthorization,
+  spotImageAuthorization
 };
