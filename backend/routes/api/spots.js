@@ -3,6 +3,7 @@ const { Spot, Review, SpotImage, User, sequelize } = require('../../db/models');
 const { requireAuth } = require('../../utils/auth');
 const { check } = require('express-validator');
 const { handleValidationErrors } = require('../../utils/validation');
+const { authorization } = require('../../utils/authorization');
 
 const router = express.Router();
 
@@ -183,6 +184,61 @@ router.post('/', requireAuth, validateSpot, async (req, res) => {
   });
 
   return res.status(201).json(spot);
+});
+
+// Add an image to a spot
+router.post('/:spotId/images', 
+  requireAuth, 
+  authorization,
+  async (req, res) => {
+    const { url, preview } = req.body;
+
+    const image = await SpotImage.create({
+      spotId: req.params.spotId,
+      url,
+      preview
+    });
+
+    return res.status(201).json({
+      id: image.id,
+      url: image.url,
+      preview: image.preview
+    });
+});
+
+// Edit a spot
+router.put('/:spotId', 
+  requireAuth, 
+  authorization,
+  validateSpot,
+  async (req, res) => {
+    const {
+      address,
+      city,
+      state,
+      country,
+      lat,
+      lng,
+      name,
+      description,
+      price
+    } = req.body;
+
+    const spot = req.spot; 
+    // Update the spot
+    await spot.update({
+      address,
+      city,
+      state,
+      country,
+      lat,
+      lng,
+      name,
+      description,
+      price
+    });
+
+    return res.json(spot);
 });
 
 module.exports = router;
