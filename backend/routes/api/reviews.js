@@ -96,4 +96,43 @@ const validateReviewImage = [
       });
   });
 
+const validateReviewContent = [
+  check('review')
+    .exists({ checkFalsy: true })
+    .withMessage('Review text is required'),
+  check('stars')
+    .exists({ checkFalsy: true })
+    .isInt({ min: 1, max: 5 })
+    .withMessage('Stars must be an integer from 1 to 5'),
+  handleValidationErrors
+];
+
+// Edit a review
+router.put('/:reviewId',
+  requireAuth,
+  reviewAuthorization,
+  validateReviewContent,
+  async (req, res) => {
+    const { review, stars } = req.body;
+    
+    const updatedReview = await req.review.update({
+      review,
+      stars
+    });
+
+    return res.json(updatedReview);
+});
+
+// Delete a review
+router.delete('/:reviewId',
+  requireAuth,
+  reviewAuthorization,
+  async (req, res) => {
+    await req.review.destroy();
+
+    return res.json({
+      message: "Successfully deleted"
+    });
+});
+
 module.exports = router;
