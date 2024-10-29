@@ -241,4 +241,16 @@ router.put('/:spotId',
     return res.json(spot);
 });
 
+// Delete a spot
+router.delete('/:spotId',
+  requireAuth,
+  authorization,
+  async (req, res) => {
+    await req.spot.destroy();
+
+    return res.json({
+      message: "Successfully deleted"
+    });
+});
+
 module.exports = router;
