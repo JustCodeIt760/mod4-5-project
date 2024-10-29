@@ -1,9 +1,10 @@
 const express = require('express');
 const { Spot, Review, SpotImage, User, sequelize, ReviewImage } = require('../../db/models');
 const { requireAuth } = require('../../utils/auth');
-const { check } = require('express-validator');
+const { check, query } = require('express-validator');
 const { handleValidationErrors } = require('../../utils/validation');
 const { authorization } = require('../../utils/authorization');
+const { Op } = require('sequelize');
 
 const router = express.Router();
 
@@ -53,9 +54,75 @@ const validateReview = [
   handleValidationErrors
 ];
 
+// Validation middleware for query parameters
+const validateQueryParams = [
+  query('page')
+    .optional()
+    .isInt({ min: 1 })
+    .withMessage('Page must be greater than or equal to 1'),
+  query('size')
+    .optional()
+    .isInt({ min: 1, max: 20 })
+    .withMessage('Size must be between 1 and 20'),
+  query('minLat')
+    .optional()
+    .isFloat({ min: -90, max: 90 })
+    .withMessage('Minimum latitude is invalid'),
+  query('maxLat')
+    .optional()
+    .isFloat({ min: -90, max: 90 })
+    .withMessage('Maximum latitude is invalid'),
+  query('minLng')
+    .optional()
+    .isFloat({ min: -180, max: 180 })
+    .withMessage('Minimum longitude is invalid'),
+  query('maxLng')
+    .optional()
+    .isFloat({ min: -180, max: 180 })
+    .withMessage('Maximum longitude is invalid'),
+  query('minPrice')
+    .optional()
+    .isFloat({ min: 0 })
+    .withMessage('Minimum price must be greater than or equal to 0'),
+  query('maxPrice')
+    .optional()
+    .isFloat({ min: 0 })
+    .withMessage('Maximum price must be greater than or equal to 0'),
+  handleValidationErrors
+];
+
 // Get all spots
-router.get('/', async (req, res) => {
+router.get('/', validateQueryParams, async (req, res) => {
+  let { page = 1, size = 20 } = req.query;
+  const { minLat, maxLat, minLng, maxLng, minPrice, maxPrice } = req.query;
+
+  // Convert to numbers
+  page = parseInt(page);
+  size = parseInt(size);
+
+  // Build where clause for filtering
+  const where = {};
+
+  if (minLat || maxLat) {
+    where.lat = {};
+    if (minLat) where.lat[Op.gte] = parseFloat(minLat);
+    if (maxLat) where.lat[Op.lte] = parseFloat(maxLat);
+  }
+
+  if (minLng || maxLng) {
+    where.lng = {};
+    if (minLng) where.lng[Op.gte] = parseFloat(minLng);
+    if (maxLng) where.lng[Op.lte] = parseFloat(maxLng);
+  }
+
+  if (minPrice || maxPrice) {
+    where.price = {};
+    if (minPrice) where.price[Op.gte] = parseFloat(minPrice);
+    if (maxPrice) where.price[Op.lte] = parseFloat(maxPrice);
+  }
+
   const spots = await Spot.findAll({
+    where,
     include: [
       {
         model: Review,
@@ -63,10 +130,8 @@ router.get('/', async (req, res) => {
       },
       {
         model: SpotImage,
+        where: { preview: true },
         attributes: [],
-        where: {
-          preview: true
-        },
         required: false
       }
     ],
@@ -82,10 +147,17 @@ router.get('/', async (req, res) => {
         ]
       ]
     },
-    group: ['Spot.id', 'SpotImages.url']
+    group: ['Spot.id', 'SpotImages.url'],
+    limit: size,
+    offset: size * (page - 1),
+    subQuery: false
   });
 
-  return res.json({ Spots: spots });
+  return res.json({
+    Spots: spots,
+    page,
+    size
+  });
 });
 
 // Get all spots owned by current user
