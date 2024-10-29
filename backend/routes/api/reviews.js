@@ -1,6 +1,9 @@
 const express = require('express');
-const { Review, User, Spot, ReviewImage, SpotImage } = require('../../db/models');
+const { Review, ReviewImage } = require('../../db/models');
 const { requireAuth } = require('../../utils/auth');
+const { reviewAuthorization } = require('../../utils/authorization');
+const { check } = require('express-validator');
+const { handleValidationErrors } = require('../../utils/validation');
 
 const router = express.Router();
 
@@ -51,5 +54,46 @@ router.get('/current', requireAuth, async (req, res) => {
 
   return res.json({ Reviews: formattedReviews });
 });
+
+// Validation middleware
+const validateReviewImage = [
+    check('url')
+      .exists({ checkFalsy: true })
+      .withMessage('URL is required')
+      .isURL()
+      .withMessage('Must be a valid URL'),
+    handleValidationErrors
+  ];
+  
+  // Add an image to a review
+  router.post('/:reviewId/images',
+    requireAuth,
+    reviewAuthorization,
+    validateReviewImage,
+    async (req, res) => {
+      // Check if review already has 10 images
+      const imageCount = await ReviewImage.count({
+        where: { reviewId: req.params.reviewId }
+      });
+  
+      if (imageCount >= 10) {
+        return res.status(403).json({
+          message: "Maximum number of images for this resource was reached"
+        });
+      }
+  
+      const { url } = req.body;
+  
+      const reviewImage = await ReviewImage.create({
+        reviewId: req.params.reviewId,
+        url
+      });
+  
+      // Return only the specified fields
+      return res.status(201).json({
+        id: reviewImage.id,
+        url: reviewImage.url
+      });
+  });
 
 module.exports = router;

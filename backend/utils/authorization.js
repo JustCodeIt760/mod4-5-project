@@ -1,4 +1,5 @@
 const { Spot } = require('../db/models');
+const { Review } = require('../db/models');
 
 // Authorization middleware for spot ownership
 const authorization = async (req, res, next) => {
@@ -20,6 +21,27 @@ const authorization = async (req, res, next) => {
   next();
 };
 
+// Authorization middleware for review ownership
+const reviewAuthorization = async (req, res, next) => {
+  const review = await Review.findByPk(req.params.reviewId);
+  
+  if (!review) {
+    return res.status(404).json({
+      message: "Review couldn't be found"
+    });
+  }
+
+  if (review.userId !== req.user.id) {
+    return res.status(403).json({
+      message: "Forbidden"
+    });
+  }
+
+  req.review = review;
+  next();
+};
+
 module.exports = {
-  authorization
+  authorization,
+  reviewAuthorization
 };
